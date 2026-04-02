@@ -27,5 +27,5 @@ message DeployResponse {
   // Indicates whether the deployment succeeded
   bool success = 1;
   // Human-readable message describing the result
-  string message = 2;
+  repeated string report = 2;
 }
