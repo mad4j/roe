@@ -45,7 +45,7 @@ impl DeployManager for DeployManagerService {
 
         Ok(Response::new(DeployResponse {
             success: true,
-            message,
+            report: vec![message],
         }))
     }
 }
@@ -92,9 +92,9 @@ mod tests {
         let body = response.into_inner();
 
         assert!(body.success);
-        assert!(body.message.contains("Deployment successful"));
-        assert!(body.message.contains("ENV=production"));
-        assert!(body.message.contains("PORT=8080"));
+        assert!(body.report[0].contains("Deployment successful"));
+        assert!(body.report[0].contains("ENV=production"));
+        assert!(body.report[0].contains("PORT=8080"));
     }
 
     #[tokio::test]
@@ -110,7 +110,7 @@ mod tests {
         let body = response.into_inner();
 
         assert!(body.success);
-        assert!(body.message.contains("Deployment successful"));
+        assert!(body.report[0].contains("Deployment successful"));
     }
 
     #[tokio::test]
