@@ -3,9 +3,9 @@ use tabled::settings::Style;
 use tabled::{Table, Tabled};
 
 use crate::output::OutputFormat;
-use crate::proto::application_manager::{
+use crate::proto::application_factory::{
     ActivateApplicationRequest, ListActiveApplicationsRequest, TerminateApplicationRequest,
-    application_manager_client::ApplicationManagerClient,
+    application_factory_client::ApplicationFactoryClient,
 };
 use crate::proto::deploy_manager::EnvVar;
 
@@ -76,7 +76,7 @@ pub async fn activate(
     env_vars: Vec<String>,
     json: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = ApplicationManagerClient::connect(address).await?;
+    let mut client = ApplicationFactoryClient::connect(address).await?;
 
     let request = if let Some(json_str) = json {
         let payload: ActivateApplicationRequestJson = serde_json::from_str(&json_str)?;
@@ -152,7 +152,7 @@ pub async fn list(
     address: String,
     output: OutputFormat,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = ApplicationManagerClient::connect(address).await?;
+    let mut client = ApplicationFactoryClient::connect(address).await?;
     let response = client
         .list_active_applications(ListActiveApplicationsRequest {})
         .await?
@@ -198,7 +198,7 @@ pub async fn terminate(
     reason: Option<String>,
     json: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = ApplicationManagerClient::connect(address).await?;
+    let mut client = ApplicationFactoryClient::connect(address).await?;
 
     let request = if let Some(json_str) = json {
         let payload: TerminateApplicationRequestJson = serde_json::from_str(&json_str)?;

@@ -1,13 +1,13 @@
 # roe
 
-**roe-cli** is a command-line gRPC client written in Rust for interacting with three services: `DeployManager`, `ManagedApplication`, and `ApplicationManager`.
+**roe-cli** is a command-line gRPC client written in Rust for interacting with three services: `DeployManager`, `ManagedApplication`, and `ApplicationFactory`.
 
 ---
 
 ## Table of Contents
 
 - [Services](#services)
-  - [ApplicationManager](#applicationmanager)
+  - [ApplicationFactory](#applicationmanager)
   - [DeployManager](#deploymanager)
   - [ManagedApplication](#managedapplication)
 - [Building](#building)
@@ -22,11 +22,11 @@
 
 ## Services
 
-### ApplicationManager
+### ApplicationFactory
 
-Defined in [`proto/application_manager.proto`](proto/application_manager.proto).
+Defined in [`proto/application_factory.proto`](proto/application_factory.proto).
 
-The `ApplicationManager` service is intended as a higher-level orchestration layer built on top of the existing lower-level services:
+The `ApplicationFactory` service is intended as a higher-level orchestration layer built on top of the existing lower-level services:
 
 - `ActivateApplication` can be implemented by delegating deployment logic to `DeployManager.Deploy`.
 - `ListActiveApplications` can be implemented by returning the currently tracked active instances.
@@ -166,7 +166,7 @@ cargo run --bin roe-cli -- [OPTIONS] <COMMAND>
 
 ### application
 
-Calls RPCs on the `ApplicationManager` service.
+Calls RPCs on the `ApplicationFactory` service.
 
 #### application activate
 
