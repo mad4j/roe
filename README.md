@@ -1,17 +1,19 @@
 # roe
 
-**roe-cli** is a command-line gRPC client written in Rust for interacting with two services — `DeployManager` and `ManagedApplication`.
+**roe-cli** is a command-line gRPC client written in Rust for interacting with three services: `DeployManager`, `ManagedApplication`, and `ApplicationManager`.
 
 ---
 
 ## Table of Contents
 
 - [Services](#services)
+  - [ApplicationManager](#applicationmanager)
   - [DeployManager](#deploymanager)
   - [ManagedApplication](#managedapplication)
 - [Building](#building)
 - [CLI interface](#cli-interface)
   - [Global options](#global-options)
+  - [application](#application)
   - [deploy](#deploy)
   - [info](#info)
   - [terminate](#terminate)
@@ -19,6 +21,66 @@
 ---
 
 ## Services
+
+### ApplicationManager
+
+Defined in [`proto/application_manager.proto`](proto/application_manager.proto).
+
+The `ApplicationManager` service is intended as a higher-level orchestration layer built on top of the existing lower-level services:
+
+- `ActivateApplication` can be implemented by delegating deployment logic to `DeployManager.Deploy`.
+- `ListActiveApplications` can be implemented by returning the currently tracked active instances.
+- `TerminateApplication` can be implemented by delegating graceful termination to the managed application lifecycle.
+
+| RPC | Request | Response | Description |
+|-----|---------|----------|-------------|
+| `ActivateApplication` | `ActivateApplicationRequest` | `ActivateApplicationResponse` | Activates a new application instance from YAML configuration and environment variables. |
+| `ListActiveApplications` | `ListActiveApplicationsRequest` | `ListActiveApplicationsResponse` | Returns all active application instances. |
+| `TerminateApplication` | `TerminateApplicationRequest` | `TerminateApplicationResponse` | Terminates a specific active application instance. |
+
+**`ActivateApplicationRequest`**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `yaml_content` | `string` | Content of the YAML configuration file used for activation/deployment. |
+| `env_vars` | `repeated deploy_manager.EnvVar` | Environment variables to apply during activation/deployment. |
+
+**`ActivateApplicationResponse`**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | `bool` | `true` when activation was accepted. |
+| `application_id` | `string` | Identifier assigned to the activated application instance. |
+| `report` | `repeated string` | Human-readable lines describing activation results. |
+
+**`ListActiveApplicationsResponse`**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `applications` | `repeated ActiveApplication` | Collection of active application instances. |
+
+**`ActiveApplication`**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `application_id` | `string` | Identifier of the active application instance. |
+| `app_name` | `string` | Human-readable application name. |
+
+**`TerminateApplicationRequest`**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `application_id` | `string` | Identifier of the active application instance to terminate. |
+| `reason` | `string` | Optional human-readable reason for termination. |
+
+**`TerminateApplicationResponse`**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | `bool` | `true` when termination was accepted. |
+| `message` | `string` | Human-readable message describing the result. |
+
+---
 
 ### DeployManager
 
@@ -87,7 +149,7 @@ The build step also compiles the `.proto` files via `tonic-build` (see `build.rs
 
 ## CLI interface
 
-`roe-cli` is a thin gRPC client that wraps the two services.
+`roe-cli` is a thin gRPC client that wraps the three services.
 
 ```bash
 cargo run --bin roe-cli -- [OPTIONS] <COMMAND>
@@ -101,6 +163,64 @@ cargo run --bin roe-cli -- [OPTIONS] <COMMAND>
 |--------|-------|---------|-------------|
 | `--address <URL>` | `-a` | `http://[::1]:50051` | gRPC server address. |
 | `--output <FORMAT>` | `-o` | `table` | Output format: `table` or `json`. |
+
+### application
+
+Calls RPCs on the `ApplicationManager` service.
+
+#### application activate
+
+Calls the `ActivateApplication` RPC.
+
+```bash
+roe-cli application activate [--yaml-content <YAML>] [--env-var <KEY=VALUE>]...
+roe-cli application activate --json '<JSON>'
+```
+
+| Flag | Description |
+|------|-------------|
+| `--yaml-content <YAML>` | YAML configuration string (required unless `--json` is used). |
+| `--env-var <KEY=VALUE>` | Environment variable in `KEY=VALUE` format. Repeatable. |
+| `--json <JSON>` | Provide the full request as a JSON object (mutually exclusive with `--yaml-content` / `--env-var`). |
+
+**Examples**
+
+```bash
+roe-cli application activate --yaml-content "name: my-app" --env-var ENV=production
+
+roe-cli application activate --json '{"yaml_content":"name: my-app","env_vars":[{"key":"ENV","value":"production"}]}'
+```
+
+#### application list
+
+Calls the `ListActiveApplications` RPC.
+
+```bash
+roe-cli application list
+```
+
+#### application terminate
+
+Calls the `TerminateApplication` RPC.
+
+```bash
+roe-cli application terminate --application-id <ID> [--reason <TEXT>]
+roe-cli application terminate --json '<JSON>'
+```
+
+| Flag | Description |
+|------|-------------|
+| `--application-id <ID>` | Active application identifier (required unless `--json` is used). |
+| `--reason <TEXT>` | Optional reason sent to the server for the termination request. |
+| `--json <JSON>` | Provide the full request as a JSON object (mutually exclusive with `--application-id` / `--reason`). |
+
+**Examples**
+
+```bash
+roe-cli application terminate --application-id app-123 --reason "maintenance window"
+
+roe-cli application terminate --json '{"application_id":"app-123","reason":"maintenance window"}'
+```
 
 ### deploy
 

@@ -2,6 +2,10 @@ pub mod commands;
 pub mod output;
 
 pub mod proto {
+    pub mod application_manager {
+        tonic::include_proto!("application_manager");
+    }
+
     pub mod deploy_manager {
         tonic::include_proto!("deploy_manager");
     }
