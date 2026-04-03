@@ -1,3 +1,4 @@
+use tokio::sync::{Mutex, oneshot};
 use tonic::{Request, Response, Status, transport::Server};
 
 pub mod deploy_manager {
@@ -15,6 +16,7 @@ use deploy_manager::{
 
 use managed_application::{
     InfoRequest, InfoResponse, ListeningAddress,
+    TerminateRequest, TerminateResponse,
     managed_application_server::{ManagedApplication, ManagedApplicationServer},
 };
 
@@ -63,6 +65,7 @@ impl DeployManager for DeployManagerService {
 pub struct ManagedApplicationService {
     app_name: String,
     listening_addresses: Vec<ListeningAddress>,
+    shutdown_tx: Mutex<Option<oneshot::Sender<()>>>,
 }
 
 #[tonic::async_trait]
@@ -73,6 +76,29 @@ impl ManagedApplication for ManagedApplicationService {
             listening_addresses: self.listening_addresses.clone(),
         }))
     }
+
+    async fn terminate(
+        &self,
+        request: Request<TerminateRequest>,
+    ) -> Result<Response<TerminateResponse>, Status> {
+        let reason = request.into_inner().reason;
+        let suffix = if reason.is_empty() {
+            String::new()
+        } else {
+            format!(": {}", reason)
+        };
+        let message = format!("Termination accepted{}. Shutting down.", suffix);
+
+        let mut guard = self.shutdown_tx.lock().await;
+        if let Some(tx) = guard.take() {
+            let _ = tx.send(());
+        }
+
+        Ok(Response::new(TerminateResponse {
+            success: true,
+            message,
+        }))
+    }
 }
 
 #[tokio::main]
@@ -81,6 +107,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let addr = LISTEN_ADDR.parse()?;
     let deploy_service = DeployManagerService;
+
+    let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let managed_app_service = ManagedApplicationService {
         app_name: "roe".to_string(),
         listening_addresses: vec![ListeningAddress {
@@ -90,6 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "managed_application.ManagedApplication".to_string(),
             ],
         }],
+        shutdown_tx: Mutex::new(Some(shutdown_tx)),
     };
 
     println!("DeployManager gRPC server listening on {addr}");
@@ -97,7 +126,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Server::builder()
         .add_service(DeployManagerServer::new(deploy_service))
         .add_service(ManagedApplicationServer::new(managed_app_service))
-        .serve(addr)
+        .serve_with_shutdown(addr, async {
+            let _ = shutdown_rx.await;
+        })
         .await?;
 
     Ok(())
@@ -107,6 +138,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
     use deploy_manager::EnvVar;
+    use managed_application::TerminateRequest;
 
     #[tokio::test]
     async fn test_deploy_success() {
@@ -173,6 +205,7 @@ mod tests {
                 address: "[::1]:50051".to_string(),
                 services: vec!["my.Service".to_string()],
             }],
+            shutdown_tx: Mutex::new(None),
         };
 
         let response = service.info(Request::new(InfoRequest {})).await.unwrap();
@@ -189,6 +222,7 @@ mod tests {
         let service = ManagedApplicationService {
             app_name: "empty-app".to_string(),
             listening_addresses: vec![],
+            shutdown_tx: Mutex::new(None),
         };
 
         let response = service.info(Request::new(InfoRequest {})).await.unwrap();
@@ -196,5 +230,77 @@ mod tests {
 
         assert_eq!(body.app_name, "empty-app");
         assert!(body.listening_addresses.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_terminate_success() {
+        let (tx, rx) = oneshot::channel::<()>();
+        let service = ManagedApplicationService {
+            app_name: "test-app".to_string(),
+            listening_addresses: vec![],
+            shutdown_tx: Mutex::new(Some(tx)),
+        };
+
+        let response = service
+            .terminate(Request::new(TerminateRequest {
+                reason: String::new(),
+            }))
+            .await
+            .unwrap();
+        let body = response.into_inner();
+
+        assert!(body.success);
+        assert!(body.message.contains("Termination accepted"));
+        assert!(rx.await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_terminate_with_reason() {
+        let (tx, rx) = oneshot::channel::<()>();
+        let service = ManagedApplicationService {
+            app_name: "test-app".to_string(),
+            listening_addresses: vec![],
+            shutdown_tx: Mutex::new(Some(tx)),
+        };
+
+        let response = service
+            .terminate(Request::new(TerminateRequest {
+                reason: "maintenance".to_string(),
+            }))
+            .await
+            .unwrap();
+        let body = response.into_inner();
+
+        assert!(body.success);
+        assert!(body.message.contains("maintenance"));
+        assert!(rx.await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_terminate_idempotent() {
+        let (tx, _rx) = oneshot::channel::<()>();
+        let service = ManagedApplicationService {
+            app_name: "test-app".to_string(),
+            listening_addresses: vec![],
+            shutdown_tx: Mutex::new(Some(tx)),
+        };
+
+        // First terminate succeeds
+        let first = service
+            .terminate(Request::new(TerminateRequest {
+                reason: String::new(),
+            }))
+            .await
+            .unwrap();
+        assert!(first.into_inner().success);
+
+        // Second terminate still succeeds (sender already consumed)
+        let second = service
+            .terminate(Request::new(TerminateRequest {
+                reason: String::new(),
+            }))
+            .await
+            .unwrap();
+        assert!(second.into_inner().success);
     }
 }

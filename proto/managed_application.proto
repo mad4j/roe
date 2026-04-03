@@ -7,6 +7,8 @@ service ManagedApplication {
   // Info returns the application name and the table of listening addresses
   // together with the services accessible from each address
   rpc Info(InfoRequest) returns (InfoResponse);
+  // Terminate requests a graceful shutdown of the application
+  rpc Terminate(TerminateRequest) returns (TerminateResponse);
 }
 
 // Request message for the Info RPC (no parameters required)
@@ -26,4 +28,18 @@ message InfoResponse {
   string app_name = 1;
   // Table of listening addresses and their associated services
   repeated ListeningAddress listening_addresses = 2;
+}
+
+// Request message for the Terminate RPC
+message TerminateRequest {
+  // Optional human-readable reason for the termination request
+  string reason = 1;
+}
+
+// Response message for the Terminate RPC
+message TerminateResponse {
+  // Indicates whether the termination was accepted
+  bool success = 1;
+  // Human-readable message describing the result
+  string message = 2;
 }
