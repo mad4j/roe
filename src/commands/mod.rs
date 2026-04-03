@@ -1,5 +1,6 @@
 pub mod deploy;
 pub mod info;
+pub mod terminate;
 
 use clap::Subcommand;
 
@@ -24,6 +25,12 @@ pub enum Commands {
     },
     /// Call the Info RPC on the ManagedApplication service
     Info,
+    /// Call the Terminate RPC on the ManagedApplication service
+    Terminate {
+        /// Optional human-readable reason for the termination request
+        #[arg(long)]
+        reason: Option<String>,
+    },
 }
 
 pub async fn run(
@@ -38,5 +45,6 @@ pub async fn run(
             json,
         } => deploy::handle(address, output, yaml_content, env_vars, json).await,
         Commands::Info => info::handle(address, output).await,
+        Commands::Terminate { reason } => terminate::handle(address, output, reason).await,
     }
 }

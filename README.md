@@ -14,6 +14,7 @@
   - [Global options](#global-options)
   - [deploy](#deploy)
   - [info](#info)
+  - [terminate](#terminate)
 
 ---
 
@@ -185,5 +186,51 @@ Application: roe
       ]
     }
   ]
+}
+```
+
+---
+
+### terminate
+
+Calls the `Terminate` RPC on the `ManagedApplication` service.
+
+```
+roe-cli terminate [--reason <TEXT>]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--reason <TEXT>` | Optional reason sent to the server for the graceful shutdown request. |
+
+**Examples**
+
+```bash
+# Request graceful shutdown with no reason
+roe-cli terminate
+
+# Request graceful shutdown with a reason
+roe-cli terminate --reason "maintenance window"
+
+# JSON output format
+roe-cli -o json terminate --reason "deploy completed"
+```
+
+**Table output (default)**
+
+```
++---------+------------------------------+
+| Success | Message                      |
++---------+------------------------------+
+| true    | Termination accepted         |
++---------+------------------------------+
+```
+
+**JSON output (`-o json`)**
+
+```json
+{
+  "success": true,
+  "message": "Termination accepted"
 }
 ```
