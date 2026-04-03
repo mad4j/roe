@@ -7,7 +7,7 @@
 ## Table of Contents
 
 - [Services](#services)
-  - [ApplicationFactory](#applicationmanager)
+  - [ApplicationFactory](#applicationfactory)
   - [DeployManager](#deploymanager)
   - [ManagedApplication](#managedapplication)
 - [Building](#building)
