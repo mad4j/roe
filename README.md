@@ -1,39 +1,19 @@
 # roe
 
-**roe** is a gRPC server written in Rust that exposes two services — `DeployManager` and `ManagedApplication` — together with a command-line client (`roe-cli`) to interact with them.
+**roe-cli** is a command-line gRPC client written in Rust for interacting with two services — `DeployManager` and `ManagedApplication`.
 
 ---
 
 ## Table of Contents
 
-- [Architecture overview](#architecture-overview)
 - [Services](#services)
   - [DeployManager](#deploymanager)
   - [ManagedApplication](#managedapplication)
 - [Building](#building)
-- [Running the server](#running-the-server)
 - [CLI interface](#cli-interface)
   - [Global options](#global-options)
   - [deploy](#deploy)
   - [info](#info)
-
----
-
-## Architecture overview
-
-```
-┌─────────────┐        gRPC (proto3)        ┌──────────────────────┐
-│   roe-cli   │ ──────────────────────────► │   server             │
-│  (client)   │                             │  ┌────────────────┐  │
-└─────────────┘                             │  │ DeployManager  │  │
-                                            │  ├────────────────┤  │
-                                            │  │ ManagedApp     │  │
-                                            │  └────────────────┘  │
-                                            │  [::1]:50051         │
-                                            └──────────────────────┘
-```
-
-The server listens on `[::1]:50051` and serves both services on the same port.
 
 ---
 
@@ -101,18 +81,6 @@ cargo build --release
 ```
 
 The build step also compiles the `.proto` files via `tonic-build` (see `build.rs`).
-
----
-
-## Running the server
-
-```bash
-cargo run --bin server
-# or after release build:
-./target/release/server
-```
-
-The server starts on `[::1]:50051`.
 
 ---
 
