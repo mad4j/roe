@@ -1,4 +1,5 @@
 use tabled::{Table, Tabled};
+use tabled::settings::Style;
 
 use crate::output::OutputFormat;
 use crate::proto::managed_application::{InfoRequest, managed_application_client::ManagedApplicationClient};
@@ -44,10 +45,10 @@ pub async fn handle(
                 .iter()
                 .map(|a| ListeningAddressRow {
                     address: a.address.clone(),
-                    services: a.services.join(", "),
+                    services: a.services.join("\n"),
                 })
                 .collect();
-            println!("{}", Table::new(rows));
+            println!("{}", Table::new(rows).with(Style::blank()));
         }
     }
 

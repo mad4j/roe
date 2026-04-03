@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tabled::{Table, Tabled};
+use tabled::settings::Style;
 
 use crate::output::OutputFormat;
 use crate::proto::deploy_manager::{
@@ -107,7 +108,7 @@ pub async fn handle(
                 rows
             };
 
-            println!("{}", Table::new(rows));
+            println!("{}", Table::new(rows).with(Style::blank()));
         }
     }
 
