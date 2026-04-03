@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package application_manager;
+package application_factory;
 
 import "deploy_manager.proto";
 
-// ApplicationManager service orchestrates application lifecycle operations
+// ApplicationFactory service orchestrates application lifecycle operations
 // by composing lower-level services such as DeployManager.
-service ApplicationManager {
+service ApplicationFactory {
   // ActivateApplication deploys and activates a new application instance.
   // A typical implementation forwards deployment details to DeployManager.
   rpc ActivateApplication(ActivateApplicationRequest) returns (ActivateApplicationResponse);
