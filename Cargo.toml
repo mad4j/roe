@@ -3,6 +3,10 @@ name = "roe"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "roe"
+path = "src/lib.rs"
+
 [[bin]]
 name = "roe-cli"
 path = "src/bin/roe-cli.rs"
