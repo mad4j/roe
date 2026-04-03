@@ -6,10 +6,13 @@ pub mod deploy_manager {
     tonic::include_proto!("deploy_manager");
 }
 
-use deploy_manager::{
-    deploy_manager_client::DeployManagerClient,
-    DeployRequest, EnvVar,
-};
+pub mod managed_application {
+    tonic::include_proto!("managed_application");
+}
+
+use deploy_manager::{DeployRequest, EnvVar, deploy_manager_client::DeployManagerClient};
+
+use managed_application::{InfoRequest, managed_application_client::ManagedApplicationClient};
 
 /// Output format for command results
 #[derive(ValueEnum, Clone, Debug, Default)]
@@ -55,6 +58,8 @@ enum Commands {
         #[arg(long, conflicts_with_all = ["yaml_content", "env_vars"])]
         json: Option<String>,
     },
+    /// Call the Info RPC on the ManagedApplication service
+    Info,
 }
 
 /// JSON-serialisable representation of a single environment variable
@@ -81,6 +86,15 @@ struct DeployResponseRow {
     report: String,
 }
 
+/// Table row used when rendering the info response
+#[derive(Tabled)]
+struct ListeningAddressRow {
+    #[tabled(rename = "Address")]
+    address: String,
+    #[tabled(rename = "Services")]
+    services: String,
+}
+
 /// Parse a KEY=VALUE string into an `EnvVar` proto message.
 /// Returns an error if the string does not contain '='.
 fn parse_env_var(s: &str) -> Result<EnvVar, String> {
@@ -97,14 +111,14 @@ fn parse_env_var(s: &str) -> Result<EnvVar, String> {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    let mut client = DeployManagerClient::connect(cli.address).await?;
-
     match cli.command {
         Commands::Deploy {
             yaml_content,
             env_vars,
             json,
         } => {
+            let mut client = DeployManagerClient::connect(cli.address).await?;
+
             let request = if let Some(json_str) = json {
                 let payload: DeployRequestJson = serde_json::from_str(&json_str)?;
                 DeployRequest {
@@ -119,8 +133,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .collect(),
                 }
             } else {
-                let yaml = yaml_content
-                    .ok_or("--yaml-content is required when --json is not provided")?;
+                let yaml =
+                    yaml_content.ok_or("--yaml-content is required when --json is not provided")?;
                 let parsed_env_vars = env_vars
                     .iter()
                     .map(|s| parse_env_var(s))
@@ -161,6 +175,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         rows
                     };
 
+                    println!("{}", Table::new(rows));
+                }
+            }
+        }
+        Commands::Info => {
+            let mut client = ManagedApplicationClient::connect(cli.address).await?;
+            let response = client.info(InfoRequest {}).await?.into_inner();
+
+            match cli.output {
+                OutputFormat::Json => {
+                    let addresses: Vec<serde_json::Value> = response
+                        .listening_addresses
+                        .iter()
+                        .map(|a| {
+                            serde_json::json!({
+                                "address": a.address,
+                                "services": a.services,
+                            })
+                        })
+                        .collect();
+                    let json_out = serde_json::json!({
+                        "app_name": response.app_name,
+                        "listening_addresses": addresses,
+                    });
+                    println!("{}", serde_json::to_string_pretty(&json_out)?);
+                }
+                OutputFormat::Table => {
+                    println!("Application: {}", response.app_name);
+                    let rows: Vec<ListeningAddressRow> = response
+                        .listening_addresses
+                        .iter()
+                        .map(|a| ListeningAddressRow {
+                            address: a.address.clone(),
+                            services: a.services.join(", "),
+                        })
+                        .collect();
                     println!("{}", Table::new(rows));
                 }
             }
