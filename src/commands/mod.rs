@@ -103,7 +103,7 @@ pub enum ApplicationCommands {
 
 pub async fn run(
     command: Commands,
-    address: String,
+    peer: String,
     output: OutputFormat,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match command {
@@ -112,26 +112,26 @@ pub async fn run(
                 yaml_content,
                 env_vars,
                 json,
-            } => application::activate(address, output, yaml_content, env_vars, json).await,
-            ApplicationCommands::List => application::list(address, output).await,
+            } => application::activate(peer, output, yaml_content, env_vars, json).await,
+            ApplicationCommands::List => application::list(peer, output).await,
             ApplicationCommands::Terminate {
                 application_id,
                 reason,
                 json,
             } => {
-                application::terminate(address, output, application_id, reason, json).await
+                application::terminate(peer, output, application_id, reason, json).await
             }
         },
         Commands::Deploy {
             yaml_content,
             env_vars,
             json,
-        } => deploy::handle(address, output, yaml_content, env_vars, json).await,
-        Commands::Info => info::handle(address, output).await,
-        Commands::Terminate { reason } => terminate::handle(address, output, reason).await,
+        } => deploy::handle(peer, output, yaml_content, env_vars, json).await,
+        Commands::Info => info::handle(peer, output).await,
+        Commands::Terminate { reason } => terminate::handle(peer, output, reason).await,
         Commands::Config { command } => match command {
-            ConfigCommands::Query { names } => config::query(address, output, names).await,
-            ConfigCommands::Configure { items } => config::configure(address, output, items).await,
+            ConfigCommands::Query { names } => config::query(peer, output, names).await,
+            ConfigCommands::Configure { items } => config::configure(peer, output, items).await,
         },
     }
 }

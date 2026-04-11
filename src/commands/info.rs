@@ -1,8 +1,27 @@
+use serde::{Deserialize, Serialize};
 use tabled::{Table, Tabled};
 use tabled::settings::Style;
 
+use crate::client;
 use crate::output::OutputFormat;
-use crate::proto::managed_application::{InfoRequest, managed_application_client::ManagedApplicationClient};
+
+/// Request payload for the Info operation (no parameters required).
+#[derive(Serialize, Deserialize, Debug)]
+struct InfoRequest {}
+
+/// A listening address paired with the services reachable at that address.
+#[derive(Serialize, Deserialize, Debug)]
+struct ListeningAddress {
+    address: String,
+    services: Vec<String>,
+}
+
+/// Response payload for the Info operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct InfoResponse {
+    app_name: String,
+    listening_addresses: Vec<ListeningAddress>,
+}
 
 /// Table row used when rendering the info response
 #[derive(Tabled)]
@@ -14,11 +33,11 @@ struct ListeningAddressRow {
 }
 
 pub async fn handle(
-    address: String,
+    peer: String,
     output: OutputFormat,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = ManagedApplicationClient::connect(address).await?;
-    let response = client.info(InfoRequest {}).await?.into_inner();
+    let response: InfoResponse =
+        client::call(&peer, "ManagedApplication", "Info", &InfoRequest {}).await?;
 
     match output {
         OutputFormat::Json => {

@@ -2,24 +2,37 @@ use serde::{Deserialize, Serialize};
 use tabled::{Table, Tabled};
 use tabled::settings::Style;
 
+use crate::client;
 use crate::output::OutputFormat;
-use crate::proto::deploy_manager::{
-    DeployRequest, EnvVar, deploy_manager_client::DeployManagerClient,
-};
 
-/// JSON-serialisable representation of a single environment variable
+/// A single environment variable represented as a key-value pair.
 #[derive(Serialize, Deserialize, Debug)]
-struct EnvVarJson {
-    key: String,
-    value: String,
+pub struct EnvVar {
+    pub key: String,
+    pub value: String,
 }
 
-/// JSON-serialisable shape of a DeployRequest payload
+/// Request payload for the Deploy operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct DeployRequest {
+    yaml_content: String,
+    #[serde(default)]
+    env_vars: Vec<EnvVar>,
+}
+
+/// Response payload for the Deploy operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct DeployResponse {
+    success: bool,
+    report: Vec<String>,
+}
+
+/// JSON-serialisable shape of a DeployRequest payload (for --json flag)
 #[derive(Serialize, Deserialize, Debug)]
 struct DeployRequestJson {
     yaml_content: String,
     #[serde(default)]
-    env_vars: Vec<EnvVarJson>,
+    env_vars: Vec<EnvVar>,
 }
 
 /// Table row used when rendering the deploy response
@@ -31,8 +44,8 @@ struct DeployResponseRow {
     report: String,
 }
 
-/// Parse a KEY=VALUE string into an `EnvVar` proto message.
-/// Returns an error if the string does not contain '='.
+/// Parse a KEY=VALUE string into an [`EnvVar`].
+/// Returns `Err` with a descriptive message if '=' is missing.
 fn parse_env_var(s: &str) -> Result<EnvVar, String> {
     let (key, value) = s
         .split_once('=')
@@ -44,26 +57,17 @@ fn parse_env_var(s: &str) -> Result<EnvVar, String> {
 }
 
 pub async fn handle(
-    address: String,
+    peer: String,
     output: OutputFormat,
     yaml_content: Option<String>,
     env_vars: Vec<String>,
     json: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = DeployManagerClient::connect(address).await?;
-
     let request = if let Some(json_str) = json {
         let payload: DeployRequestJson = serde_json::from_str(&json_str)?;
         DeployRequest {
             yaml_content: payload.yaml_content,
-            env_vars: payload
-                .env_vars
-                .into_iter()
-                .map(|e| EnvVar {
-                    key: e.key,
-                    value: e.value,
-                })
-                .collect(),
+            env_vars: payload.env_vars,
         }
     } else {
         let yaml =
@@ -78,7 +82,8 @@ pub async fn handle(
         }
     };
 
-    let response = client.deploy(request).await?.into_inner();
+    let response: DeployResponse =
+        client::call(&peer, "DeployManager", "Deploy", &request).await?;
 
     match output {
         OutputFormat::Json => {
