@@ -1,4 +1,5 @@
 pub mod application;
+pub mod config;
 pub mod deploy;
 pub mod info;
 pub mod terminate;
@@ -36,6 +37,31 @@ pub enum Commands {
         /// Optional human-readable reason for the termination request
         #[arg(long)]
         reason: Option<String>,
+    },
+    /// Call RPCs on the ConfigurableApplication service
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigCommands {
+    /// Query configuration items.
+    /// Pass one or more --name flags to retrieve specific items;
+    /// omit all --name flags to retrieve the full configuration.
+    Query {
+        /// Name of a configuration item to retrieve (repeatable)
+        #[arg(long = "name")]
+        names: Vec<String>,
+    },
+    /// Set configuration items.
+    /// Each item must be provided as NAME=TYPE:VALUE (e.g. retries=int64:3)
+    /// or NAME=null to clear a value.
+    Configure {
+        /// Configuration item in NAME=TYPE:VALUE format (repeatable)
+        #[arg(long = "item")]
+        items: Vec<String>,
     },
 }
 
@@ -103,5 +129,9 @@ pub async fn run(
         } => deploy::handle(address, output, yaml_content, env_vars, json).await,
         Commands::Info => info::handle(address, output).await,
         Commands::Terminate { reason } => terminate::handle(address, output, reason).await,
+        Commands::Config { command } => match command {
+            ConfigCommands::Query { names } => config::query(address, output, names).await,
+            ConfigCommands::Configure { items } => config::configure(address, output, items).await,
+        },
     }
 }

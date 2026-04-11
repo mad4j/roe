@@ -13,4 +13,8 @@ pub mod proto {
     pub mod managed_application {
         tonic::include_proto!("managed_application");
     }
+
+    pub mod configurable_application {
+        tonic::include_proto!("configurable_application");
+    }
 }
