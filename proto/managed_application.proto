@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package managed_application;
+package hdds.managed_application;
 
 // ManagedApplication service exposes metadata about the running application
 service ManagedApplication {

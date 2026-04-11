@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package configurable_application;
+package hdds.configurable_application;
 
 // ConfigurableApplication service exposes methods to inspect and modify
 // the runtime configuration of an application through a list of DataItems.

@@ -1,15 +1,15 @@
 [package]
-name = "roe"
+name = "hdds"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
-name = "roe"
+name = "hdds"
 path = "src/lib.rs"
 
 [[bin]]
-name = "roe-cli"
-path = "src/bin/roe-cli.rs"
+name = "hdds-cli"
+path = "src/bin/hdds-cli.rs"
 
 [dependencies]
 tonic = "0.12"

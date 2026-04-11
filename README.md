@@ -1,6 +1,6 @@
-# roe
+# hdds
 
-**roe-cli** is a command-line gRPC client written in Rust for interacting with three services: `DeployManager`, `ManagedApplication`, and `ApplicationFactory`.
+**hdds-cli** is a command-line gRPC client written in Rust for interacting with three services: `DeployManager`, `ManagedApplication`, and `ApplicationFactory`.
 
 ---
 
@@ -43,7 +43,7 @@ The `ApplicationFactory` service is intended as a higher-level orchestration lay
 | Field | Type | Description |
 |-------|------|-------------|
 | `yaml_content` | `string` | Content of the YAML configuration file used for activation/deployment. |
-| `env_vars` | `repeated deploy_manager.EnvVar` | Environment variables to apply during activation/deployment. |
+| `env_vars` | `repeated hdds.deploy_manager.EnvVar` | Environment variables to apply during activation/deployment. |
 
 **`ActivateApplicationResponse`**
 
@@ -149,12 +149,12 @@ The build step also compiles the `.proto` files via `tonic-build` (see `build.rs
 
 ## CLI interface
 
-`roe-cli` is a thin gRPC client that wraps the three services.
+`hdds-cli` is a thin gRPC client that wraps the three services.
 
 ```bash
-cargo run --bin roe-cli -- [OPTIONS] <COMMAND>
+cargo run --bin hdds-cli -- [OPTIONS] <COMMAND>
 # or after release build:
-./target/release/roe-cli [OPTIONS] <COMMAND>
+./target/release/hdds-cli [OPTIONS] <COMMAND>
 ```
 
 ### Global options
@@ -173,8 +173,8 @@ Calls RPCs on the `ApplicationFactory` service.
 Calls the `ActivateApplication` RPC.
 
 ```bash
-roe-cli application activate [--yaml-content <YAML>] [--env-var <KEY=VALUE>]...
-roe-cli application activate --json '<JSON>'
+hdds-cli application activate [--yaml-content <YAML>] [--env-var <KEY=VALUE>]...
+hdds-cli application activate --json '<JSON>'
 ```
 
 | Flag | Description |
@@ -186,9 +186,9 @@ roe-cli application activate --json '<JSON>'
 **Examples**
 
 ```bash
-roe-cli application activate --yaml-content "name: my-app" --env-var ENV=production
+hdds-cli application activate --yaml-content "name: my-app" --env-var ENV=production
 
-roe-cli application activate --json '{"yaml_content":"name: my-app","env_vars":[{"key":"ENV","value":"production"}]}'
+hdds-cli application activate --json '{"yaml_content":"name: my-app","env_vars":[{"key":"ENV","value":"production"}]}'
 ```
 
 #### application list
@@ -196,7 +196,7 @@ roe-cli application activate --json '{"yaml_content":"name: my-app","env_vars":[
 Calls the `ListActiveApplications` RPC.
 
 ```bash
-roe-cli application list
+hdds-cli application list
 ```
 
 #### application terminate
@@ -204,8 +204,8 @@ roe-cli application list
 Calls the `TerminateApplication` RPC.
 
 ```bash
-roe-cli application terminate --application-id <ID> [--reason <TEXT>]
-roe-cli application terminate --json '<JSON>'
+hdds-cli application terminate --application-id <ID> [--reason <TEXT>]
+hdds-cli application terminate --json '<JSON>'
 ```
 
 | Flag | Description |
@@ -217,9 +217,9 @@ roe-cli application terminate --json '<JSON>'
 **Examples**
 
 ```bash
-roe-cli application terminate --application-id app-123 --reason "maintenance window"
+hdds-cli application terminate --application-id app-123 --reason "maintenance window"
 
-roe-cli application terminate --json '{"application_id":"app-123","reason":"maintenance window"}'
+hdds-cli application terminate --json '{"application_id":"app-123","reason":"maintenance window"}'
 ```
 
 ### deploy
@@ -227,8 +227,8 @@ roe-cli application terminate --json '{"application_id":"app-123","reason":"main
 Calls the `Deploy` RPC on the `DeployManager` service.
 
 ```
-roe-cli deploy [--yaml-content <YAML>] [--env-var <KEY=VALUE>]...
-roe-cli deploy --json '<JSON>'
+hdds-cli deploy [--yaml-content <YAML>] [--env-var <KEY=VALUE>]...
+hdds-cli deploy --json '<JSON>'
 ```
 
 | Flag | Description |
@@ -241,13 +241,13 @@ roe-cli deploy --json '<JSON>'
 
 ```bash
 # Using individual flags
-roe-cli deploy --yaml-content "name: my-app" --env-var ENV=production --env-var PORT=8080
+hdds-cli deploy --yaml-content "name: my-app" --env-var ENV=production --env-var PORT=8080
 
 # Using JSON input
-roe-cli deploy --json '{"yaml_content":"name: my-app","env_vars":[{"key":"ENV","value":"production"}]}'
+hdds-cli deploy --json '{"yaml_content":"name: my-app","env_vars":[{"key":"ENV","value":"production"}]}'
 
 # JSON output format
-roe-cli -o json deploy --yaml-content "name: my-app"
+hdds-cli -o json deploy --yaml-content "name: my-app"
 ```
 
 **Table output (default)**
@@ -278,17 +278,17 @@ roe-cli -o json deploy --yaml-content "name: my-app"
 Calls the `Info` RPC on the `ManagedApplication` service and prints the application name together with the addresses and services it is listening on.
 
 ```
-roe-cli info
+hdds-cli info
 ```
 
 **Table output (default)**
 
 ```
-Application: roe
+Application: hdds
 +---------------+----------------------------------------------------------+
 | Address       | Services                                                 |
 +---------------+----------------------------------------------------------+
-| [::1]:50051   | deploy_manager.DeployManager, managed_application.ManagedApplication |
+| [::1]:50051   | hdds.deploy_manager.DeployManager, hdds.managed_application.ManagedApplication |
 +---------------+----------------------------------------------------------+
 ```
 
@@ -296,13 +296,13 @@ Application: roe
 
 ```json
 {
-  "app_name": "roe",
+  "app_name": "hdds",
   "listening_addresses": [
     {
       "address": "[::1]:50051",
       "services": [
-        "deploy_manager.DeployManager",
-        "managed_application.ManagedApplication"
+        "hdds.deploy_manager.DeployManager",
+        "hdds.managed_application.ManagedApplication"
       ]
     }
   ]
@@ -316,7 +316,7 @@ Application: roe
 Calls the `Terminate` RPC on the `ManagedApplication` service.
 
 ```
-roe-cli terminate [--reason <TEXT>]
+hdds-cli terminate [--reason <TEXT>]
 ```
 
 | Flag | Description |
@@ -327,13 +327,13 @@ roe-cli terminate [--reason <TEXT>]
 
 ```bash
 # Request graceful shutdown with no reason
-roe-cli terminate
+hdds-cli terminate
 
 # Request graceful shutdown with a reason
-roe-cli terminate --reason "maintenance window"
+hdds-cli terminate --reason "maintenance window"
 
 # JSON output format
-roe-cli -o json terminate --reason "deploy completed"
+hdds-cli -o json terminate --reason "deploy completed"
 ```
 
 **Table output (default)**

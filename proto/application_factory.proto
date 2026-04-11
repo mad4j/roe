@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package application_factory;
+package hdds.application_factory;
 
 import "deploy_manager.proto";
 
@@ -23,7 +23,7 @@ message ActivateApplicationRequest {
   // Content of the YAML configuration file used for activation/deployment.
   string yaml_content = 1;
   // Environment variables to apply during activation/deployment.
-  repeated deploy_manager.EnvVar env_vars = 2;
+  repeated hdds.deploy_manager.EnvVar env_vars = 2;
 }
 
 // Response message for ActivateApplication.

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package deploy_manager;
+package hdds.deploy_manager;
 
 // DeployManager service for managing deployments
 service DeployManager {

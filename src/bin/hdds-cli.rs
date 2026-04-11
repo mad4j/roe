@@ -1,10 +1,10 @@
 use clap::Parser;
-use roe::{commands, output::OutputFormat};
+use hdds::{commands, output::OutputFormat};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "roe-cli",
-    about = "CLI client for the roe gRPC services",
+    name = "hdds-cli",
+    about = "CLI client for the hdds gRPC services",
     version
 )]
 struct Cli {
