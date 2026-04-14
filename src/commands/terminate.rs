@@ -1,10 +1,22 @@
+use serde::{Deserialize, Serialize};
 use tabled::settings::Style;
 use tabled::{Table, Tabled};
 
+use crate::client;
 use crate::output::OutputFormat;
-use crate::proto::managed_application::{
-    TerminateRequest, managed_application_client::ManagedApplicationClient,
-};
+
+/// Request payload for the Terminate operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct TerminateRequest {
+    reason: String,
+}
+
+/// Response payload for the Terminate operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct TerminateResponse {
+    success: bool,
+    message: String,
+}
 
 /// Table row used when rendering the terminate response
 #[derive(Tabled)]
@@ -16,18 +28,16 @@ struct TerminateResponseRow {
 }
 
 pub async fn handle(
-    address: String,
+    peer: String,
     output: OutputFormat,
     reason: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = ManagedApplicationClient::connect(address).await?;
+    let request = TerminateRequest {
+        reason: reason.unwrap_or_default(),
+    };
 
-    let response = client
-        .terminate(TerminateRequest {
-            reason: reason.unwrap_or_default(),
-        })
-        .await?
-        .into_inner();
+    let response: TerminateResponse =
+        client::call(&peer, "ManagedApplication", "Terminate", &request).await?;
 
     match output {
         OutputFormat::Json => {

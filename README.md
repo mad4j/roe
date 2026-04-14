@@ -1,6 +1,8 @@
 # roe
 
-**roe-cli** is a command-line gRPC client written in Rust for interacting with three services: `DeployManager`, `ManagedApplication`, and `ApplicationFactory`.
+**roe-cli** is a command-line DDS-RPC client written in Rust for interacting with three services: `DeployManager`, `ManagedApplication`, and `ApplicationFactory`.
+
+It uses [HDDS](https://hdds.io) — a pure-Rust implementation of the OMG DDS (Data Distribution Service) and RTPS specifications — as its communication middleware.
 
 ---
 
@@ -22,18 +24,20 @@
 
 ## Services
 
+All services communicate over DDS-RPC topics.  Each operation is invoked by
+publishing a JSON-encoded request to the `rq/<ServiceName>` topic and
+receiving the reply on `rr/<ServiceName>`.
+
+The request envelope always carries the operation name:
+
+```json
+{"op": "<OperationName>", "data": { ... }}
+```
+
 ### ApplicationFactory
 
-Defined in [`proto/application_factory.proto`](proto/application_factory.proto).
-
-The `ApplicationFactory` service is intended as a higher-level orchestration layer built on top of the existing lower-level services:
-
-- `ActivateApplication` can be implemented by delegating deployment logic to `DeployManager.Deploy`.
-- `ListActiveApplications` can be implemented by returning the currently tracked active instances.
-- `TerminateApplication` can be implemented by delegating graceful termination to the managed application lifecycle.
-
-| RPC | Request | Response | Description |
-|-----|---------|----------|-------------|
+| Operation | Request | Response | Description |
+|-----------|---------|----------|-------------|
 | `ActivateApplication` | `ActivateApplicationRequest` | `ActivateApplicationResponse` | Activates a new application instance from YAML configuration and environment variables. |
 | `ListActiveApplications` | `ListActiveApplicationsRequest` | `ListActiveApplicationsResponse` | Returns all active application instances. |
 | `TerminateApplication` | `TerminateApplicationRequest` | `TerminateApplicationResponse` | Terminates a specific active application instance. |
@@ -43,7 +47,7 @@ The `ApplicationFactory` service is intended as a higher-level orchestration lay
 | Field | Type | Description |
 |-------|------|-------------|
 | `yaml_content` | `string` | Content of the YAML configuration file used for activation/deployment. |
-| `env_vars` | `repeated deploy_manager.EnvVar` | Environment variables to apply during activation/deployment. |
+| `env_vars` | `[{key, value}]` | Environment variables to apply during activation/deployment. |
 
 **`ActivateApplicationResponse`**
 
@@ -51,13 +55,13 @@ The `ApplicationFactory` service is intended as a higher-level orchestration lay
 |-------|------|-------------|
 | `success` | `bool` | `true` when activation was accepted. |
 | `application_id` | `string` | Identifier assigned to the activated application instance. |
-| `report` | `repeated string` | Human-readable lines describing activation results. |
+| `report` | `[string]` | Human-readable lines describing activation results. |
 
 **`ListActiveApplicationsResponse`**
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `applications` | `repeated ActiveApplication` | Collection of active application instances. |
+| `applications` | `[ActiveApplication]` | Collection of active application instances. |
 
 **`ActiveApplication`**
 
@@ -84,10 +88,8 @@ The `ApplicationFactory` service is intended as a higher-level orchestration lay
 
 ### DeployManager
 
-Defined in [`proto/deploy_manager.proto`](proto/deploy_manager.proto).
-
-| RPC | Request | Response | Description |
-|-----|---------|----------|-------------|
+| Operation | Request | Response | Description |
+|-----------|---------|----------|-------------|
 | `Deploy` | `DeployRequest` | `DeployResponse` | Accepts a YAML configuration and an optional list of environment variables, and returns a deployment report. |
 
 **`DeployRequest`**
@@ -95,23 +97,21 @@ Defined in [`proto/deploy_manager.proto`](proto/deploy_manager.proto).
 | Field | Type | Description |
 |-------|------|-------------|
 | `yaml_content` | `string` | Content of the YAML configuration file (required, must not be empty). |
-| `env_vars` | `repeated EnvVar` | Environment variables to apply during deployment (`key`/`value` pairs). |
+| `env_vars` | `[{key, value}]` | Environment variables to apply during deployment. |
 
 **`DeployResponse`**
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `success` | `bool` | `true` when the deployment was accepted. |
-| `report` | `repeated string` | Human-readable lines describing the result. |
+| `report` | `[string]` | Human-readable lines describing the result. |
 
 ---
 
 ### ManagedApplication
 
-Defined in [`proto/managed_application.proto`](proto/managed_application.proto).
-
-| RPC | Request | Response | Description |
-|-----|---------|----------|-------------|
+| Operation | Request | Response | Description |
+|-----------|---------|----------|-------------|
 | `Info` | `InfoRequest` | `InfoResponse` | Returns the application name and the list of addresses/services it is listening on. |
 | `Terminate` | `TerminateRequest` | `TerminateResponse` | Requests a graceful shutdown of the server. |
 
@@ -120,7 +120,7 @@ Defined in [`proto/managed_application.proto`](proto/managed_application.proto).
 | Field | Type | Description |
 |-------|------|-------------|
 | `app_name` | `string` | Human-readable name of the application. |
-| `listening_addresses` | `repeated ListeningAddress` | Each entry contains an `address` and the `services` reachable at that address. |
+| `listening_addresses` | `[ListeningAddress]` | Each entry contains an `address` and the `services` reachable at that address. |
 
 **`TerminateRequest`**
 
@@ -143,13 +143,11 @@ Defined in [`proto/managed_application.proto`](proto/managed_application.proto).
 cargo build --release
 ```
 
-The build step also compiles the `.proto` files via `tonic-build` (see `build.rs`).
-
 ---
 
 ## CLI interface
 
-`roe-cli` is a thin gRPC client that wraps the three services.
+`roe-cli` is a thin DDS-RPC client that wraps the three services.
 
 ```bash
 cargo run --bin roe-cli -- [OPTIONS] <COMMAND>
@@ -161,16 +159,16 @@ cargo run --bin roe-cli -- [OPTIONS] <COMMAND>
 
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
-| `--address <URL>` | `-a` | `http://[::1]:50051` | gRPC server address. |
+| `--peer <HOST:PORT>` | `-p` | `127.0.0.1:7411` | DDS peer address (unicast). Omit or leave empty to rely on RTPS multicast discovery. |
 | `--output <FORMAT>` | `-o` | `table` | Output format: `table` or `json`. |
 
 ### application
 
-Calls RPCs on the `ApplicationFactory` service.
+Calls operations on the `ApplicationFactory` service.
 
 #### application activate
 
-Calls the `ActivateApplication` RPC.
+Calls the `ActivateApplication` operation.
 
 ```bash
 roe-cli application activate [--yaml-content <YAML>] [--env-var <KEY=VALUE>]...
@@ -193,7 +191,7 @@ roe-cli application activate --json '{"yaml_content":"name: my-app","env_vars":[
 
 #### application list
 
-Calls the `ListActiveApplications` RPC.
+Calls the `ListActiveApplications` operation.
 
 ```bash
 roe-cli application list
@@ -201,7 +199,7 @@ roe-cli application list
 
 #### application terminate
 
-Calls the `TerminateApplication` RPC.
+Calls the `TerminateApplication` operation.
 
 ```bash
 roe-cli application terminate --application-id <ID> [--reason <TEXT>]
@@ -224,7 +222,7 @@ roe-cli application terminate --json '{"application_id":"app-123","reason":"main
 
 ### deploy
 
-Calls the `Deploy` RPC on the `DeployManager` service.
+Calls the `Deploy` operation on the `DeployManager` service.
 
 ```
 roe-cli deploy [--yaml-content <YAML>] [--env-var <KEY=VALUE>]...
@@ -275,7 +273,7 @@ roe-cli -o json deploy --yaml-content "name: my-app"
 
 ### info
 
-Calls the `Info` RPC on the `ManagedApplication` service and prints the application name together with the addresses and services it is listening on.
+Calls the `Info` operation on the `ManagedApplication` service and prints the application name together with the addresses and services it is listening on.
 
 ```
 roe-cli info
@@ -288,7 +286,7 @@ Application: roe
 +---------------+----------------------------------------------------------+
 | Address       | Services                                                 |
 +---------------+----------------------------------------------------------+
-| [::1]:50051   | deploy_manager.DeployManager, managed_application.ManagedApplication |
+| 127.0.0.1:7411 | DeployManager, ManagedApplication                      |
 +---------------+----------------------------------------------------------+
 ```
 
@@ -299,10 +297,10 @@ Application: roe
   "app_name": "roe",
   "listening_addresses": [
     {
-      "address": "[::1]:50051",
+      "address": "127.0.0.1:7411",
       "services": [
-        "deploy_manager.DeployManager",
-        "managed_application.ManagedApplication"
+        "DeployManager",
+        "ManagedApplication"
       ]
     }
   ]
@@ -313,7 +311,7 @@ Application: roe
 
 ### terminate
 
-Calls the `Terminate` RPC on the `ManagedApplication` service.
+Calls the `Terminate` operation on the `ManagedApplication` service.
 
 ```
 roe-cli terminate [--reason <TEXT>]
@@ -354,3 +352,4 @@ roe-cli -o json terminate --reason "deploy completed"
   "message": "Termination accepted"
 }
 ```
+

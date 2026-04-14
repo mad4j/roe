@@ -2,12 +2,9 @@ use serde::{Deserialize, Serialize};
 use tabled::settings::Style;
 use tabled::{Table, Tabled};
 
+use crate::client;
+use crate::commands::deploy::EnvVar;
 use crate::output::OutputFormat;
-use crate::proto::application_factory::{
-    ActivateApplicationRequest, ListActiveApplicationsRequest, TerminateApplicationRequest,
-    application_factory_client::ApplicationFactoryClient,
-};
-use crate::proto::deploy_manager::EnvVar;
 
 /// JSON-serialisable representation of a single environment variable.
 #[derive(Serialize, Deserialize, Debug)]
@@ -30,6 +27,53 @@ struct TerminateApplicationRequestJson {
     application_id: String,
     #[serde(default)]
     reason: String,
+}
+
+/// Request payload for the ActivateApplication operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct ActivateApplicationRequest {
+    yaml_content: String,
+    #[serde(default)]
+    env_vars: Vec<EnvVar>,
+}
+
+/// Response payload for the ActivateApplication operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct ActivateApplicationResponse {
+    success: bool,
+    application_id: String,
+    report: Vec<String>,
+}
+
+/// Request payload for the ListActiveApplications operation (no parameters).
+#[derive(Serialize, Deserialize, Debug)]
+struct ListActiveApplicationsRequest {}
+
+/// Metadata for a single active application instance.
+#[derive(Serialize, Deserialize, Debug)]
+struct ActiveApplication {
+    application_id: String,
+    app_name: String,
+}
+
+/// Response payload for the ListActiveApplications operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct ListActiveApplicationsResponse {
+    applications: Vec<ActiveApplication>,
+}
+
+/// Request payload for the TerminateApplication operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct TerminateApplicationRequest {
+    application_id: String,
+    reason: String,
+}
+
+/// Response payload for the TerminateApplication operation.
+#[derive(Serialize, Deserialize, Debug)]
+struct TerminateApplicationResponse {
+    success: bool,
+    message: String,
 }
 
 #[derive(Tabled)]
@@ -58,7 +102,8 @@ struct TerminateResponseRow {
     message: String,
 }
 
-/// Parse a KEY=VALUE string into an EnvVar proto message.
+/// Parse a KEY=VALUE string into an [`EnvVar`].
+/// Returns `Err` with a descriptive message if '=' is missing.
 fn parse_env_var(s: &str) -> Result<EnvVar, String> {
     let (key, value) = s
         .split_once('=')
@@ -70,14 +115,12 @@ fn parse_env_var(s: &str) -> Result<EnvVar, String> {
 }
 
 pub async fn activate(
-    address: String,
+    peer: String,
     output: OutputFormat,
     yaml_content: Option<String>,
     env_vars: Vec<String>,
     json: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = ApplicationFactoryClient::connect(address).await?;
-
     let request = if let Some(json_str) = json {
         let payload: ActivateApplicationRequestJson = serde_json::from_str(&json_str)?;
         ActivateApplicationRequest {
@@ -104,7 +147,8 @@ pub async fn activate(
         }
     };
 
-    let response = client.activate_application(request).await?.into_inner();
+    let response: ActivateApplicationResponse =
+        client::call(&peer, "ApplicationFactory", "ActivateApplication", &request).await?;
 
     match output {
         OutputFormat::Json => {
@@ -149,14 +193,11 @@ pub async fn activate(
 }
 
 pub async fn list(
-    address: String,
+    peer: String,
     output: OutputFormat,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = ApplicationFactoryClient::connect(address).await?;
-    let response = client
-        .list_active_applications(ListActiveApplicationsRequest {})
-        .await?
-        .into_inner();
+    let response: ListActiveApplicationsResponse =
+        client::call(&peer, "ApplicationFactory", "ListActiveApplications", &ListActiveApplicationsRequest {}).await?;
 
     match output {
         OutputFormat::Json => {
@@ -192,14 +233,12 @@ pub async fn list(
 }
 
 pub async fn terminate(
-    address: String,
+    peer: String,
     output: OutputFormat,
     application_id: Option<String>,
     reason: Option<String>,
     json: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = ApplicationFactoryClient::connect(address).await?;
-
     let request = if let Some(json_str) = json {
         let payload: TerminateApplicationRequestJson = serde_json::from_str(&json_str)?;
         TerminateApplicationRequest {
@@ -214,7 +253,8 @@ pub async fn terminate(
         }
     };
 
-    let response = client.terminate_application(request).await?.into_inner();
+    let response: TerminateApplicationResponse =
+        client::call(&peer, "ApplicationFactory", "TerminateApplication", &request).await?;
 
     match output {
         OutputFormat::Json => {
